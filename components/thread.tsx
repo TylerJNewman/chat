@@ -11,6 +11,7 @@ import {
   CopyIcon,
   RefreshCwIcon,
   SendHorizontalIcon,
+  ArrowUpIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import { Button } from "@/components/ui/button";
 export const Thread: FC = () => {
   return (
     <ThreadPrimitive.Root className="bg-background box-border flex h-full flex-col overflow-hidden">
-      <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-4 py-8">
+      <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-4 py-8 w-full max-w-screen-md mx-auto">
         <ThreadPrimitive.Empty>
           <div className="flex flex-col items-center justify-center h-full text-center">
             <h2 className="text-xl font-semibold mb-2">Start a conversation</h2>
@@ -36,7 +37,7 @@ export const Thread: FC = () => {
         />
       </ThreadPrimitive.Viewport>
 
-      <div className="border-t p-4">
+      <div className="px-4">
         <Composer />
       </div>
     </ThreadPrimitive.Root>
@@ -83,17 +84,24 @@ const RefreshButton: FC = () => {
 
 const Composer: FC = () => {
   return (
-    <ComposerPrimitive.Root className="flex gap-2">
-      <ComposerPrimitive.Input
-        className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        placeholder="Type your message..."
-      />
-      <ComposerPrimitive.Send asChild>
-        <Button size="sm">
-          <SendHorizontalIcon className="w-4 h-4" />
-          <span className="sr-only">Send</span>
-        </Button>
-      </ComposerPrimitive.Send>
+    <ComposerPrimitive.Root className="mx-auto w-full max-w-screen-md">
+      <div className="relative flex flex-col rounded-t-xl border border-b-0 border-input bg-background px-3 pt-3 pb-2 min-h-[100px]">
+        <div className="flex flex-col flex-1">
+          <ComposerPrimitive.Input
+            className="flex-1 bg-transparent text-base leading-6 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 resize-none min-h-[48px] py-2 pr-12"
+            placeholder="Type your message here..."
+          />
+        </div>
+        <ComposerPrimitive.Send asChild>
+          <Button 
+            size="sm" 
+            className="absolute bottom-2 right-2 h-9 w-9 rounded-lg p-2"
+          >
+            <ArrowUpIcon className="w-5 h-5" />
+            <span className="sr-only">Send</span>
+          </Button>
+        </ComposerPrimitive.Send>
+      </div>
     </ComposerPrimitive.Root>
   );
 }; 
