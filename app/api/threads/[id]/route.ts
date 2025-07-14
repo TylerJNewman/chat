@@ -47,4 +47,37 @@ export async function GET(
       { status: 500 }
     );
   }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const threadId = params.id;
+    const resourceId = "user-123"; // Static for now
+
+    if (!threadId) {
+      return Response.json({ error: "Thread ID is required" }, { status: 400 });
+    }
+
+    // TODO: In a real implementation, you would delete the thread from PostgreSQL
+    // and clear any associated memory data. For now, we'll just return success
+    // since Mastra's memory will naturally clean up unused threads over time.
+    
+    console.log(`Deleting thread: ${threadId} for resource: ${resourceId}`);
+    
+    return Response.json({ 
+      success: true,
+      threadId,
+      resourceId 
+    });
+
+  } catch (error) {
+    console.error("Error deleting thread:", error);
+    return Response.json(
+      { error: "Failed to delete thread" },
+      { status: 500 }
+    );
+  }
 } 
