@@ -10,7 +10,7 @@ if (!process.env.POSTGRES_USER) throw new Error("POSTGRES_USER is not defined");
 if (!process.env.POSTGRES_PASSWORD) throw new Error("POSTGRES_PASSWORD is not defined");
 if (!process.env.POSTGRES_DATABASE) throw new Error("POSTGRES_DATABASE is not defined");
 
-const connectionString = `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT || 5432}/${process.env.POSTGRES_DATABASE}`;
+const connectionString = `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@${process.env.POSTGRES_HOST}:${process.env.POSTGRES_PORT || 5432}/${process.env.POSTGRES_DATABASE}?ssl=true`;
 
 export const memory = new Memory({
   storage: new PostgresStore({
