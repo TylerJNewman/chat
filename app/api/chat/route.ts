@@ -1,24 +1,16 @@
-import { openai } from "@ai-sdk/openai";
-import { frontendTools } from "@assistant-ui/react-ai-sdk";
-import { streamText } from "ai";
+import { mastra } from "@/mastra";
 
-export const runtime = "edge";
+// Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { messages, system, tools } = await req.json();
+  // Extract threadId along with messages
+  const { messages, threadId } = await req.json();
 
-  const result = streamText({
-    model: openai("gpt-4o"),
-    messages,
-    // forward system prompt and tools from the frontend
-    toolCallStreaming: true,
-    system,
-    tools: {
-      ...frontendTools(tools),
-    },
-    onError: console.log,
-  });
+  const agent = mastra.getAgent("chatAgent");
+
+  // Pass threadId to the agent stream
+  const result = await agent.stream(messages, { threadId });
 
   return result.toDataStreamResponse();
 }
