@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import icon from "@/public/favicon/icon.svg";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import ModelPicker from "./ModelPicker";
+import {ModelPicker} from "./ModelPicker";
 import { Thread } from "@/components/assistant-ui/thread";
 import { ThreadList } from "@/components/assistant-ui/thread-list";
 
