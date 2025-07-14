@@ -1,45 +1,31 @@
 "use client";
-
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
+import {
+  CompositeAttachmentAdapter,
+  SimpleImageAttachmentAdapter,
+  SimpleTextAttachmentAdapter,
+  AssistantRuntimeProvider,
+  WebSpeechSynthesisAdapter,
+} from "@assistant-ui/react";
 import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
-import { Thread } from "@/components/assistant-ui/thread";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-import { Separator } from "@/components/ui/separator";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import type { FC, PropsWithChildren } from "react";
 
-export const Assistant = () => {
+const Assistant: FC<PropsWithChildren> = ({ children }) => {
   const runtime = useChatRuntime({
     api: "/api/chat",
+    maxSteps: 5,
+    // adapters: {
+    //   attachments: new CompositeAttachmentAdapter([
+    //     new SimpleImageAttachmentAdapter(),
+    //     new SimpleTextAttachmentAdapter(),
+    //   ]),
+    //   speech: new WebSpeechSynthesisAdapter(),
+    // },
   });
-
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-            <SidebarTrigger />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="#">
-                    Build Your Own ChatGPT UX
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>
-                    Starter Template
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </header>
-          <Thread />
-        </SidebarInset>
-      </SidebarProvider>
+      <div className="h-full">{children}</div>
     </AssistantRuntimeProvider>
   );
 };
+
+export default Assistant;

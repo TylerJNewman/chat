@@ -1,5 +1,12 @@
-import { Assistant } from "./assistant";
+import {Shadcn} from "@/components/shadcn/Shadcn";
+import Assistant from "./assistant";
 
 export default function Home() {
-  return <Assistant />;
+  return (
+    <div className="h-screen">
+      <Assistant>
+        <Shadcn />
+      </Assistant>
+    </div>
+  );
 }
