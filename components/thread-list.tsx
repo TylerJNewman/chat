@@ -47,7 +47,7 @@ export const ThreadList = () => {
   }, [loadThreads]);
 
   // Delete thread
-  const deleteThread = async (threadId: string) => {
+  const deleteThread = useCallback(async (threadId: string) => {
     try {
       const response = await fetch(`/api/threads/${threadId}`, {
         method: "DELETE",
@@ -57,18 +57,23 @@ export const ThreadList = () => {
       });
 
       if (response.ok) {
+        // Remove from local store immediately for responsive UI
         removeThread(threadId);
+        
         // If we deleted the current thread, create a new one
         if (threadId === currentThreadId) {
           newThread();
         }
+        
+        // Refresh the thread list from the server to ensure sync
+        await loadThreads();
       } else {
         console.error("Failed to delete thread:", response.status);
       }
     } catch (error) {
       console.error("Error deleting thread:", error);
     }
-  };
+  }, [removeThread, currentThreadId, newThread, loadThreads]);
 
   // Switch to thread
   const switchToThread = (threadId: string) => {
