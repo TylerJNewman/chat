@@ -82,40 +82,44 @@ export const ThreadList = () => {
   };
 
   return (
-    <nav className="bg-muted/40 border-r min-h-full overflow-hidden w-64 flex flex-col">
-      <div className="p-3 border-b">
-        <h2 className="font-semibold text-sm text-muted-foreground mb-3">Conversations</h2>
-        
-        {/* New Thread Button */}
-        <Button
-          onClick={newThread}
-          variant="outline"
-          className="w-full justify-start gap-2 h-9"
-        >
-          <PlusIcon className="w-4 h-4" />
-          New Thread
-        </Button>
-      </div>
+    <nav className="bg-muted/40 border-r min-h-full overflow-hidden w-64 flex flex-col p-2">
+      <div className="flex flex-col gap-3">
+        <div className="px-1.5">
+          <h2 className="font-semibold text-sm text-muted-foreground mb-2">TJ Chat</h2>
+          
+          {/* New Thread Button */}
+          <Button
+            onClick={newThread}
+            variant="outline"
+            className="w-full justify-center gap-2 h-9"
+          >
+            New Chat
+          </Button>
+        </div>
 
-      {/* Thread List */}
-      <div className="flex-1 overflow-y-auto">
-        {isLoadingThreads ? (
-          <div className="p-3 text-sm text-muted-foreground">Loading...</div>
-        ) : threads.length === 0 ? (
-          <div className="p-3 text-sm text-muted-foreground">No conversations yet</div>
-        ) : (
-          <ol className="space-y-1 p-2">
-            {threads.map((thread) => (
-              <ThreadItem
-                key={thread.id}
-                thread={thread}
-                isActive={thread.id === currentThreadId}
-                onSelect={() => switchToThread(thread.id)}
-                onDelete={() => deleteThread(thread.id)}
-              />
-            ))}
-          </ol>
-        )}
+        {/* Contained separator */}
+        <div className="border-b border-muted-foreground/20 mx-1.5" />
+
+        {/* Thread List */}
+        <div className="flex-1 overflow-y-auto px-1.5">
+          {isLoadingThreads ? (
+            <div className="py-2 text-sm text-muted-foreground">Loading...</div>
+          ) : threads.length === 0 ? (
+            <div className="py-2 text-sm text-muted-foreground">No conversations yet</div>
+          ) : (
+            <ol className="space-y-1">
+              {threads.map((thread) => (
+                <ThreadItem
+                  key={thread.id}
+                  thread={thread}
+                  isActive={thread.id === currentThreadId}
+                  onSelect={() => switchToThread(thread.id)}
+                  onDelete={() => deleteThread(thread.id)}
+                />
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
     </nav>
   );
@@ -131,7 +135,7 @@ interface ThreadItemProps {
 const ThreadItem = ({ thread, isActive, onSelect, onDelete }: ThreadItemProps) => {
   return (
     <li
-      className={`group flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-muted/60 cursor-pointer transition-colors ${
+      className={`group flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/60 cursor-pointer transition-colors ${
         isActive ? "bg-muted" : ""
       }`}
     >
