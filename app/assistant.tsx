@@ -13,7 +13,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const Assistant: FC<PropsWithChildren> = ({ children }) => {
   const [threadId] = useState(uuidv4());
-  const [resourceId] = useState(uuidv4());
+  const [resourceId] = useState("user-123"); // Hardcode for persistence
 
   const runtime = useChatRuntime({
     api: "/api/chat",

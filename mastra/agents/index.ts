@@ -11,11 +11,16 @@ const connectionString = process.env.DATABASE_URL;
 export const memory = new Memory({
   storage: new PostgresStore({ connectionString }),
   vector: new PgVector({ connectionString }),
+  options: {
+    lastMessages: 10,
+  },
 }); 
 
-export const chatAgent = new Agent({
+type ChatAgent = Agent<any, any> & { memory: Memory };
+
+export const chatAgent: ChatAgent = new Agent({
   name: "chat-agent",
   instructions: "You are a helpful AI assistant. You are friendly, concise, and helpful and remember previous conversations.",
   model: openai("gpt-4o-mini"),
   memory, // Add the memory module to the agent
-}); 
+}) as ChatAgent; 
