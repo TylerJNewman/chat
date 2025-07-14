@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ActionBarPrimitive,
   ComposerPrimitive,
   MessagePrimitive,
   ThreadPrimitive,
@@ -60,6 +61,29 @@ const AssistantMessage: FC = () => {
       <div className="bg-muted rounded-2xl px-4 py-2 max-w-xs">
         <MessagePrimitive.Content />
       </div>
+      <ActionBarPrimitive.Root
+        hideWhenRunning
+        autohide="not-last"
+        className="flex items-center gap-1 ml-2"
+      >
+        <ActionBarPrimitive.Copy asChild>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+            <MessagePrimitive.If copied>
+              <CheckIcon className="w-3 h-3" />
+            </MessagePrimitive.If>
+            <MessagePrimitive.If copied={false}>
+              <CopyIcon className="w-3 h-3" />
+            </MessagePrimitive.If>
+            <span className="sr-only">Copy</span>
+          </Button>
+        </ActionBarPrimitive.Copy>
+        <ActionBarPrimitive.Reload asChild>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+            <RefreshCwIcon className="w-3 h-3" />
+            <span className="sr-only">Refresh</span>
+          </Button>
+        </ActionBarPrimitive.Reload>
+      </ActionBarPrimitive.Root>
     </MessagePrimitive.Root>
   );
 };
