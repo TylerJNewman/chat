@@ -3,6 +3,7 @@
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type AppendMessage } from "@assistant-ui/react";
 import { type ReactNode, useState, useCallback, useRef, createContext, useContext, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { useChatStore } from "@/store/chat-store";
 
 // Simplified message type that matches what we need
 interface ChatMessage {
@@ -32,25 +33,27 @@ export const useThread = () => {
 export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [currentThreadId, setCurrentThreadId] = useState<string>(() => {
-    // Try to get saved threadId from localStorage on initial load
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('currentThreadId') || uuidv4();
-    }
-    return uuidv4();
-  });
   const [resourceId] = useState("user-123"); // Static resourceId for now
-  const [isLoadingThread, setIsLoadingThread] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Zustand store
+  const {
+    currentThreadId,
+    setCurrentThreadId,
+    createNewThread,
+    isLoadingThread,
+    setIsLoadingThread,
+    updateThread,
+  } = useChatStore();
 
   const generateId = useCallback(() => uuidv4(), []);
 
-  // Save threadId to localStorage whenever it changes
+  // Initialize thread on mount if none exists
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('currentThreadId', currentThreadId);
+    if (!currentThreadId) {
+      createNewThread();
     }
-  }, [currentThreadId]);
+  }, [currentThreadId, createNewThread]);
 
   // Load thread messages from API
   const loadThreadMessages = useCallback(async (threadId: string) => {
@@ -82,9 +85,9 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoadingThread(false);
     }
-  }, [generateId]);
+  }, [generateId, setIsLoadingThread]);
 
-  // Load messages for current thread on mount and when threadId changes
+  // Load messages for current thread when threadId changes
   useEffect(() => {
     if (currentThreadId) {
       loadThreadMessages(currentThreadId);
@@ -199,6 +202,15 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
           }
         }
       }
+
+      // Update thread title if this is the first message
+      if (messages.length === 0) {
+        const title = userMessage.content.slice(0, 50) + (userMessage.content.length > 50 ? '...' : '');
+        updateThread(currentThreadId, { title, updatedAt: new Date() });
+      } else {
+        // Just update the timestamp
+        updateThread(currentThreadId, { updatedAt: new Date() });
+      }
       
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -221,7 +233,7 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       setIsRunning(false);
       abortControllerRef.current = null;
     }
-  }, [isRunning, messages, currentThreadId, resourceId, generateId]);
+  }, [isRunning, messages, currentThreadId, resourceId, generateId, updateThread]);
 
   const onEdit = useCallback(async (message: AppendMessage) => {
     // Handle message editing - for now just log
@@ -236,10 +248,9 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const handleNewThread = useCallback(() => {
-    const newThreadId = uuidv4();
-    setCurrentThreadId(newThreadId);
+    createNewThread();
     setMessages([]);
-  }, []);
+  }, [createNewThread]);
 
   const runtime = useExternalStoreRuntime({
     isRunning: isRunning || isLoadingThread,

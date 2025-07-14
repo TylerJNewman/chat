@@ -3,22 +3,23 @@
 import { Button } from "@/components/ui/button";
 import { PlusIcon, X } from "lucide-react";
 import { useThread } from "./chat-runtime-provider";
-import { useState, useEffect, useCallback } from "react";
-
-interface Thread {
-  id: string;
-  title: string;
-  updatedAt: Date;
-}
+import { useEffect, useCallback } from "react";
+import { useChatStore } from "@/store/chat-store";
 
 export const ThreadList = () => {
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const { newThread, currentThreadId } = useThread();
+  const {
+    threads,
+    setThreads,
+    removeThread,
+    setCurrentThreadId,
+    isLoadingThreads,
+    setIsLoadingThreads,
+  } = useChatStore();
 
   // Load threads from API
   const loadThreads = useCallback(async () => {
-    setIsLoading(true);
+    setIsLoadingThreads(true);
     try {
       const response = await fetch("/api/threads", {
         method: "GET",
@@ -36,9 +37,9 @@ export const ThreadList = () => {
     } catch (error) {
       console.error("Error loading threads:", error);
     } finally {
-      setIsLoading(false);
+      setIsLoadingThreads(false);
     }
-  }, []);
+  }, [setThreads, setIsLoadingThreads]);
 
   // Load threads on mount
   useEffect(() => {
@@ -56,7 +57,7 @@ export const ThreadList = () => {
       });
 
       if (response.ok) {
-        setThreads(prev => prev.filter(thread => thread.id !== threadId));
+        removeThread(threadId);
         // If we deleted the current thread, create a new one
         if (threadId === currentThreadId) {
           newThread();
@@ -71,10 +72,8 @@ export const ThreadList = () => {
 
   // Switch to thread
   const switchToThread = (threadId: string) => {
-    // For now, we'll just reload the page with the thread in localStorage
-    // In a more sophisticated implementation, we'd update the context directly
-    localStorage.setItem('currentThreadId', threadId);
-    window.location.reload();
+    setCurrentThreadId(threadId);
+    // The ChatRuntimeProvider will automatically load messages for this thread
   };
 
   return (
@@ -95,7 +94,7 @@ export const ThreadList = () => {
 
       {/* Thread List */}
       <div className="flex-1 overflow-y-auto">
-        {isLoading ? (
+        {isLoadingThreads ? (
           <div className="p-3 text-sm text-muted-foreground">Loading...</div>
         ) : threads.length === 0 ? (
           <div className="p-3 text-sm text-muted-foreground">No conversations yet</div>
@@ -118,7 +117,7 @@ export const ThreadList = () => {
 };
 
 interface ThreadItemProps {
-  thread: Thread;
+  thread: { id: string; title: string; updatedAt: Date };
   isActive: boolean;
   onSelect: () => void;
   onDelete: () => void;
