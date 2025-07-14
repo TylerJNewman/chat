@@ -8,10 +8,19 @@ import {
 } from "@assistant-ui/react";
 import { useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import type { FC, PropsWithChildren } from "react";
+import { useState } from "react";
+import { v4 as uuidv4 } from "uuid";
 
 const Assistant: FC<PropsWithChildren> = ({ children }) => {
+  const [threadId] = useState(uuidv4());
+  const [resourceId] = useState(uuidv4());
+
   const runtime = useChatRuntime({
     api: "/api/chat",
+    body: {
+      threadId,
+      resourceId,
+    },
     maxSteps: 5,
     // adapters: {
     //   attachments: new CompositeAttachmentAdapter([
