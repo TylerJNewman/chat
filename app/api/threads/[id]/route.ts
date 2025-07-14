@@ -1,5 +1,7 @@
 import { mastra } from "@/mastra";
+import { memory } from "@/mastra/agents";
 import type { NextRequest } from "next/server";
+import type { PostgresStore } from "@mastra/pg";
 
 export const maxDuration = 30;
 
@@ -51,7 +53,7 @@ export async function GET(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: threadId } = await params;
@@ -61,11 +63,29 @@ export async function DELETE(
       return Response.json({ error: "Thread ID is required" }, { status: 400 });
     }
 
-    // TODO: In a real implementation, you would delete the thread from PostgreSQL
-    // and clear any associated memory data. For now, we'll just return success
-    // since Mastra's memory will naturally clean up unused threads over time.
-    
     console.log(`Deleting thread: ${threadId} for resource: ${resourceId}`);
+    
+    // Delete the thread from PostgreSQL database
+    try {
+      if (memory?.storage && 'db' in memory.storage) {
+        const storage = memory.storage as PostgresStore;
+        
+        // Delete all messages for this thread
+        const deleteQuery = `
+          DELETE FROM mastra_messages 
+          WHERE thread_id = $1 AND "resourceId" = $2
+        `;
+        
+        const result = await storage.db.none(deleteQuery, [threadId, resourceId]);
+        console.log(`Successfully deleted thread ${threadId} from database`);
+      }
+    } catch (dbError) {
+      console.error("Database deletion error:", dbError);
+      return Response.json(
+        { error: "Failed to delete thread from database" },
+        { status: 500 }
+      );
+    }
     
     return Response.json({ 
       success: true,
