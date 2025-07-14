@@ -179,26 +179,26 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
         const lines = chunk.split('\n').filter(line => line.trim() !== '');
         
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') break;
-            
+          // Handle Vercel AI SDK streaming format
+          if (line.startsWith('0:')) {
+            // Text chunk - extract the JSON string content
+            const data = line.slice(2);
             try {
-              const parsed = JSON.parse(data);
-              if (parsed.choices?.[0]?.delta?.content) {
-                accumulatedText += parsed.choices[0].delta.content;
-                
-                // Update the assistant message with accumulated text
-                setMessages(prev => prev.map(msg => 
-                  msg.id === assistantMessageId 
-                    ? { ...msg, content: accumulatedText }
-                    : msg
-                ));
-              }
+              const text = JSON.parse(data);
+              accumulatedText += text;
+              
+              // Update the assistant message with accumulated text
+              setMessages(prev => prev.map(msg => 
+                msg.id === assistantMessageId 
+                  ? { ...msg, content: accumulatedText }
+                  : msg
+              ));
             } catch (e) {
-              // Skip malformed JSON chunks
-              console.warn('Failed to parse chunk:', data);
+              console.warn('Failed to parse text chunk:', data);
             }
+          } else if (line.startsWith('e:') || line.startsWith('d:')) {
+            // End of stream
+            break;
           }
         }
       }

@@ -5,10 +5,10 @@ export const maxDuration = 30;
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const threadId = params.id;
+    const { id: threadId } = await params;
     const resourceId = "user-123"; // Static for now, should match the one in chat provider
 
     if (!threadId) {
@@ -54,7 +54,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const threadId = params.id;
+    const { id: threadId } = await params;
     const resourceId = "user-123"; // Static for now
 
     if (!threadId) {
