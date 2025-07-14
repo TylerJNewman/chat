@@ -34,15 +34,27 @@ export async function GET(
     }
 
     // Get messages for this thread from the database
-    const messages: ThreadMessage[] = [];
+    let messages: ThreadMessage[] = [];
     
     try {
       if (memory?.storage && 'db' in memory.storage) {
         const storage = memory.storage as PostgresStore;
         
-        // Query messages for this specific thread
+        // Optimized query that processes JSON in the database
         const query = `
-          SELECT id, content, role, "createdAt"
+          SELECT 
+            id,
+            role,
+            content,
+            "createdAt",
+            CASE 
+              WHEN content::jsonb ? 'parts' THEN 
+                (SELECT string_agg(part->>'text', '') 
+                 FROM jsonb_array_elements(content::jsonb->'parts') part 
+                 WHERE part->>'type' = 'text')
+              ELSE 
+                content::text
+            END as extracted_content
           FROM mastra_messages 
           WHERE thread_id = $1 AND "resourceId" = $2
           ORDER BY "createdAt" ASC
@@ -50,45 +62,66 @@ export async function GET(
         
         const result = await storage.db.manyOrNone(query, [threadId, resourceId]);
         
-        for (const row of result) {
-          try {
-            // Parse the JSON content structure
-            const contentObj = JSON.parse(row.content) as MessageContent;
-            let messageContent = '';
-            
-            if (contentObj.parts && contentObj.parts.length > 0) {
-              // Extract text from parts
-              const textParts = contentObj.parts
-                .filter((part: MessageContentPart) => part.type === 'text')
-                .map((part: MessageContentPart) => part.text)
-                .join('');
-              messageContent = textParts;
-            } else {
-              // Fallback to raw content
-              messageContent = row.content;
-            }
-            
-            messages.push({
-              id: row.id,
-              role: row.role,
-              content: messageContent,
-              createdAt: row.createdAt,
-            });
-          } catch (parseError) {
-            console.warn('Failed to parse message content:', parseError);
-            // Add message with raw content as fallback
-            messages.push({
-              id: row.id,
-              role: row.role,
-              content: row.content,
-              createdAt: row.createdAt,
-            });
-          }
-        }
+        messages = result.map(row => ({
+          id: row.id,
+          role: row.role,
+          content: row.extracted_content || row.content,
+          createdAt: row.createdAt,
+        }));
       }
     } catch (dbError) {
       console.error("Database query error for thread messages:", dbError);
-      // Return empty array on error, but don't fail the request
+      
+      // Fallback to the original approach if the optimized query fails
+      try {
+        if (memory?.storage && 'db' in memory.storage) {
+          const storage = memory.storage as PostgresStore;
+          
+          const fallbackQuery = `
+            SELECT id, content, role, "createdAt"
+            FROM mastra_messages 
+            WHERE thread_id = $1 AND "resourceId" = $2
+            ORDER BY "createdAt" ASC
+          `;
+          
+          const result = await storage.db.manyOrNone(fallbackQuery, [threadId, resourceId]);
+          
+          messages = result.map(row => {
+            try {
+              const contentObj = JSON.parse(row.content) as MessageContent;
+              let messageContent = '';
+              
+              if (contentObj.parts && contentObj.parts.length > 0) {
+                const textParts = contentObj.parts
+                  .filter((part: MessageContentPart) => part.type === 'text')
+                  .map((part: MessageContentPart) => part.text)
+                  .join('');
+                messageContent = textParts;
+              } else {
+                messageContent = row.content;
+              }
+              
+              return {
+                id: row.id,
+                role: row.role,
+                content: messageContent,
+                createdAt: row.createdAt,
+              };
+            } catch (parseError) {
+              console.warn('Failed to parse message content:', parseError);
+              return {
+                id: row.id,
+                role: row.role,
+                content: row.content,
+                createdAt: row.createdAt,
+              };
+            }
+          });
+        }
+      } catch (fallbackError) {
+        console.error("Fallback query also failed:", fallbackError);
+        // Return empty array on complete failure
+      }
     }
     
     return Response.json({ 

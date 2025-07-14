@@ -8,28 +8,30 @@ if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not defined");
 
 const connectionString = process.env.DATABASE_URL;
 
-// Singleton pattern for database connections to avoid duplicates
-let _postgresStore: PostgresStore | null = null;
-let _pgVector: PgVector | null = null;
-let _memory: Memory | null = null;
+// Global singleton pattern that works with Next.js HMR
+declare global {
+  var __mastra_postgres_store: PostgresStore | undefined;
+  var __mastra_pg_vector: PgVector | undefined;
+  var __mastra_memory: Memory | undefined;
+}
 
 function getPostgresStore() {
-  if (!_postgresStore) {
-    _postgresStore = new PostgresStore({ connectionString });
+  if (!global.__mastra_postgres_store) {
+    global.__mastra_postgres_store = new PostgresStore({ connectionString });
   }
-  return _postgresStore;
+  return global.__mastra_postgres_store;
 }
 
 function getPgVector() {
-  if (!_pgVector) {
-    _pgVector = new PgVector({ connectionString });
+  if (!global.__mastra_pg_vector) {
+    global.__mastra_pg_vector = new PgVector({ connectionString });
   }
-  return _pgVector;
+  return global.__mastra_pg_vector;
 }
 
 export const memory = (() => {
-  if (!_memory) {
-    _memory = new Memory({
+  if (!global.__mastra_memory) {
+    global.__mastra_memory = new Memory({
       storage: getPostgresStore(),
       vector: getPgVector(),
       options: {
@@ -37,7 +39,7 @@ export const memory = (() => {
       },
     });
   }
-  return _memory;
+  return global.__mastra_memory;
 })();
 
 export const chatAgent = new Agent({
