@@ -32,36 +32,42 @@ export async function GET(req: NextRequest) {
       if (memory?.storage && 'db' in memory.storage) {
         const storage = memory.storage as PostgresStore; // Cast to access db property
         
-        // Query the mastra_messages table to get unique thread IDs
+        // Optimized single query using window functions to get thread info and first user message
         const query = `
-          SELECT DISTINCT thread_id, 
-                 MAX("createdAt") as updated_at,
-                 COUNT(*) as message_count
-          FROM mastra_messages 
-          WHERE "resourceId" = $1 
-          GROUP BY thread_id 
-          ORDER BY updated_at DESC
+          WITH thread_info AS (
+            SELECT DISTINCT thread_id, 
+                   MAX("createdAt") OVER (PARTITION BY thread_id) as updated_at,
+                   COUNT(*) OVER (PARTITION BY thread_id) as message_count
+            FROM mastra_messages 
+            WHERE "resourceId" = $1
+          ),
+          first_user_messages AS (
+            SELECT DISTINCT ON (thread_id) 
+                   thread_id,
+                   content
+            FROM mastra_messages 
+            WHERE "resourceId" = $1 AND role = 'user'
+            ORDER BY thread_id, "createdAt" ASC
+          )
+          SELECT DISTINCT 
+                 ti.thread_id,
+                 ti.updated_at,
+                 COALESCE(fum.content, '') as first_message_content
+          FROM thread_info ti
+          LEFT JOIN first_user_messages fum ON ti.thread_id = fum.thread_id
+          ORDER BY ti.updated_at DESC
           LIMIT 50
         `;
         
         const result = await storage.db.manyOrNone(query, [resourceId]);
         
         for (const row of result) {
-          // Get the first user message to use as title
-          const titleQuery = `
-            SELECT content 
-            FROM mastra_messages 
-            WHERE thread_id = $1 AND "resourceId" = $2 AND role = 'user'
-            ORDER BY "createdAt" ASC 
-            LIMIT 1
-          `;
-          const titleResult = await storage.db.oneOrNone(titleQuery, [row.thread_id, resourceId]);
-          
           let title = 'New conversation';
-          if (titleResult?.content) {
+          
+          if (row.first_message_content) {
             try {
               // Parse the JSON content structure
-              const contentObj = JSON.parse(titleResult.content) as MessageContent;
+              const contentObj = JSON.parse(row.first_message_content) as MessageContent;
               if (contentObj.parts && contentObj.parts.length > 0) {
                 // Extract text from the first text part
                 const textPart = contentObj.parts.find((part: ContentPart) => part.type === 'text');
@@ -71,7 +77,7 @@ export async function GET(req: NextRequest) {
               }
             } catch (e) {
               // Fallback to using the raw content if JSON parsing fails
-              const content = typeof titleResult.content === 'string' ? titleResult.content : JSON.stringify(titleResult.content);
+              const content = typeof row.first_message_content === 'string' ? row.first_message_content : JSON.stringify(row.first_message_content);
               title = content.length > 50 ? `${content.substring(0, 50)}...` : content;
             }
           }

@@ -8,19 +8,41 @@ if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not defined");
 
 const connectionString = process.env.DATABASE_URL;
 
-export const memory = new Memory({
-  storage: new PostgresStore({ connectionString }),
-  vector: new PgVector({ connectionString }),
-  options: {
-    lastMessages: 10,
-  },
-}); 
+// Singleton pattern for database connections to avoid duplicates
+let _postgresStore: PostgresStore | null = null;
+let _pgVector: PgVector | null = null;
+let _memory: Memory | null = null;
 
-type ChatAgent = Agent<any, any> & { memory: Memory };
+function getPostgresStore() {
+  if (!_postgresStore) {
+    _postgresStore = new PostgresStore({ connectionString });
+  }
+  return _postgresStore;
+}
 
-export const chatAgent: ChatAgent = new Agent({
+function getPgVector() {
+  if (!_pgVector) {
+    _pgVector = new PgVector({ connectionString });
+  }
+  return _pgVector;
+}
+
+export const memory = (() => {
+  if (!_memory) {
+    _memory = new Memory({
+      storage: getPostgresStore(),
+      vector: getPgVector(),
+      options: {
+        lastMessages: 10,
+      },
+    });
+  }
+  return _memory;
+})();
+
+export const chatAgent = new Agent({
   name: "chat-agent",
   instructions: "You are a helpful AI assistant. You are friendly, concise, and helpful and remember previous conversations.",
   model: openai("gpt-4o-mini"),
   memory, // Add the memory module to the agent
-}) as ChatAgent; 
+}); 
