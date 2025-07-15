@@ -112,7 +112,6 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
 
   // Load thread messages instantly from cache, fetch in background if needed
   const loadThreadMessages = useCallback(async (threadId: string) => {
-    
     // Always check cache first and load instantly
     const hasCached = hasThreadMessages(threadId);
     

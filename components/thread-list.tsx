@@ -67,8 +67,8 @@ export const ThreadList = () => {
 
   // Initialize threads - use cache immediately if available
   const initializeThreads = useCallback(() => {
-    // Don't do anything until store is hydrated
-    if (!_hasHydrated) {
+    // Early return if not hydrated or already initialized
+    if (!_hasHydrated || hasInitialized) {
       return;
     }
     
@@ -76,11 +76,11 @@ export const ThreadList = () => {
     if (threads.length > 0) {
       setHasInitialized(true);
       
-      // Background refresh if data is stale
+      // Background refresh if data is stale (non-blocking)
       if (shouldRefreshThreads()) {
-        refreshThreadsFromAPI();
+        setTimeout(() => refreshThreadsFromAPI(), 0);
       }
-    } else if (!hasInitialized) {
+    } else {
       setIsLoadingThreads(true);
       refreshThreadsFromAPI().finally(() => {
         setIsLoadingThreads(false);
