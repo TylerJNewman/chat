@@ -10,14 +10,12 @@ export interface Thread {
 interface ChatStore {
   // Thread management
   threads: Thread[];
-  currentThreadId: string;
   
   // Loading states
   isLoadingThreads: boolean;
   isLoadingThread: boolean;
   
   // Actions
-  setCurrentThreadId: (id: string) => void;
   setThreads: (threads: Thread[]) => void;
   addThread: (thread: Thread) => void;
   removeThread: (threadId: string) => void;
@@ -34,13 +32,10 @@ export const useChatStore = create<ChatStore>()(
     (set, get) => ({
       // Initial state
       threads: [],
-      currentThreadId: '',
       isLoadingThreads: false,
       isLoadingThread: false,
       
       // Actions
-      setCurrentThreadId: (id: string) => 
-        set({ currentThreadId: id }),
       
       setThreads: (threads: Thread[]) => 
         set({ threads }),
@@ -77,7 +72,6 @@ export const useChatStore = create<ChatStore>()(
         };
         
         set((state) => ({
-          currentThreadId: newThreadId,
           threads: [newThread, ...state.threads].slice(0, 50)
         }));
         
@@ -89,7 +83,6 @@ export const useChatStore = create<ChatStore>()(
       // Only persist certain fields
       partialize: (state) => ({
         threads: state.threads,
-        currentThreadId: state.currentThreadId,
       }),
       // Custom storage to handle Date objects
       storage: {

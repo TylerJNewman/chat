@@ -4,6 +4,7 @@ import { AssistantRuntimeProvider, useExternalStoreRuntime, type AppendMessage }
 import { type ReactNode, useState, useCallback, useRef, createContext, useContext, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useChatStore } from "@/store/chat-store";
+import { useQueryState } from "nuqs";
 
 // Simplified message type that matches what we need
 interface ChatMessage {
@@ -38,22 +39,27 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
 
   // Zustand store
   const {
-    currentThreadId,
-    setCurrentThreadId,
     createNewThread,
     isLoadingThread,
     setIsLoadingThread,
     updateThread,
   } = useChatStore();
+  
+  // Use nuqs to persist current thread ID in URL
+  const [currentThreadId, setCurrentThreadId] = useQueryState('thread', {
+    defaultValue: '',
+    clearOnDefault: true,
+  });
 
   const generateId = useCallback(() => uuidv4(), []);
 
   // Initialize thread on mount if none exists
   useEffect(() => {
     if (!currentThreadId) {
-      createNewThread();
+      const newThreadId = createNewThread();
+      setCurrentThreadId(newThreadId);
     }
-  }, [currentThreadId, createNewThread]);
+  }, [currentThreadId, createNewThread, setCurrentThreadId]);
 
   // Load thread messages from API
   const loadThreadMessages = useCallback(async (threadId: string) => {
@@ -248,9 +254,10 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const handleNewThread = useCallback(() => {
-    createNewThread();
+    const newThreadId = createNewThread();
+    setCurrentThreadId(newThreadId);
     setMessages([]);
-  }, [createNewThread]);
+  }, [createNewThread, setCurrentThreadId]);
 
   const runtime = useExternalStoreRuntime({
     isRunning: isRunning || isLoadingThread,

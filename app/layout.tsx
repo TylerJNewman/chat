@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ChatRuntimeProvider } from "@/components/chat-runtime-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,9 +30,11 @@ export default function RootLayout({
       <body
         className={`h-full ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <TooltipProvider>
-          <ChatRuntimeProvider>{children}</ChatRuntimeProvider>
-        </TooltipProvider>
+        <NuqsAdapter>
+          <TooltipProvider>
+            <ChatRuntimeProvider>{children}</ChatRuntimeProvider>
+          </TooltipProvider>
+        </NuqsAdapter>
       </body>
     </html>
   );

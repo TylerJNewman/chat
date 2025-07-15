@@ -5,17 +5,23 @@ import { PlusIcon, X } from "lucide-react";
 import { useThread } from "./chat-runtime-provider";
 import { useEffect, useCallback, useState } from "react";
 import { useChatStore } from "@/store/chat-store";
+import { useQueryState } from "nuqs";
 
 export const ThreadList = () => {
-  const { newThread, currentThreadId } = useThread();
+  const { newThread } = useThread();
   const {
     threads,
     setThreads,
     removeThread,
-    setCurrentThreadId,
     isLoadingThreads,
     setIsLoadingThreads,
   } = useChatStore();
+  
+  // Use nuqs to persist current thread ID in URL
+  const [currentThreadId, setCurrentThreadId] = useQueryState('thread', {
+    defaultValue: '',
+    clearOnDefault: true,
+  });
 
   // Track if we've initialized (to prevent flash)
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -66,6 +72,7 @@ export const ThreadList = () => {
         
         // If we deleted the current thread, create a new one
         if (threadId === currentThreadId) {
+          setCurrentThreadId('');
           newThread();
         }
         
@@ -77,7 +84,7 @@ export const ThreadList = () => {
     } catch (error) {
       console.error("Error deleting thread:", error);
     }
-  }, [removeThread, currentThreadId, newThread, loadThreads]);
+  }, [removeThread, currentThreadId, newThread, loadThreads, setCurrentThreadId]);
 
   // Switch to thread
   const switchToThread = (threadId: string) => {
@@ -93,7 +100,10 @@ export const ThreadList = () => {
           
           {/* New Thread Button */}
           <Button
-            onClick={newThread}
+            onClick={() => {
+              setCurrentThreadId('');
+              newThread();
+            }}
             variant="outline"
             className="w-full justify-center gap-2 h-9"
           >
@@ -106,7 +116,10 @@ export const ThreadList = () => {
 
         {/* Thread List */}
         <div className="flex-1 overflow-y-auto px-1.5">
-          {!hasInitialized || isLoadingThreads ? (
+          {!hasInitialized ? (
+            // Show blank space while initializing (no flash)
+            <div className="py-2" />
+          ) : isLoadingThreads ? (
             <div className="py-2 text-sm text-muted-foreground">Loading...</div>
           ) : threads.length === 0 ? (
             <div className="py-2 text-sm text-muted-foreground">No conversations yet</div>
