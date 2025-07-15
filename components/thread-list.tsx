@@ -134,19 +134,18 @@ interface ThreadItemProps {
 
 const ThreadItem = ({ thread, isActive, onSelect, onDelete }: ThreadItemProps) => {
   return (
-    <li
-      className={`group flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/60 cursor-pointer transition-colors ${
-        isActive ? "bg-muted" : ""
-      }`}
-    >
-      <button
-        type="button"
+    <li className="group relative">
+      <Button
         onClick={onSelect}
-        className="flex-1 text-left text-sm truncate"
-        title={thread.title}
+        variant="ghost"
+        className={`w-full justify-start px-2 py-1.5 h-auto text-left font-normal transition-colors group-hover:bg-muted/60 ${
+          isActive ? "bg-muted group-hover:bg-muted" : ""
+        }`}
       >
-        {thread.title}
-      </button>
+        <span className="flex-1 text-sm truncate pr-8" title={thread.title}>
+          {thread.title}
+        </span>
+      </Button>
       
       <Button
         onClick={(e) => {
@@ -155,7 +154,7 @@ const ThreadItem = ({ thread, isActive, onSelect, onDelete }: ThreadItemProps) =
         }}
         variant="ghost"
         size="sm"
-        className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+        className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all h-6 w-6 p-0 hover:bg-destructive/20 hover:text-destructive"
       >
         <X className="w-3 h-3" />
         <span className="sr-only">Delete thread</span>
