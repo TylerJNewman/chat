@@ -8,13 +8,18 @@ import { useChatStore } from "@/store/chat-store";
 import { useQueryState } from "nuqs";
 
 export const ThreadList = () => {
+  
   const {
     threads,
-    setThreads,
+    setThreadsWithTimestamp,
     removeThread,
     isLoadingThreads,
     setIsLoadingThreads,
+    shouldRefreshThreads,
+    preloadThreadMessages,
+    _hasHydrated,
   } = useChatStore();
+  
   
   // Use nuqs to persist current thread ID in URL
   const [currentThreadId, setCurrentThreadId] = useQueryState('thread', {
@@ -25,9 +30,9 @@ export const ThreadList = () => {
   // Track if we've initialized (to prevent flash)
   const [hasInitialized, setHasInitialized] = useState(false);
 
-  // Load threads from API
-  const loadThreads = useCallback(async () => {
-    setIsLoadingThreads(true);
+  // Background refresh of threads from API
+  const refreshThreadsFromAPI = useCallback(async () => {
+    
     try {
       const response = await fetch("/api/threads", {
         method: "GET",
@@ -38,22 +43,58 @@ export const ThreadList = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setThreads(data.threads || []);
+        const fetchedThreads = data.threads || [];
+        
+        setThreadsWithTimestamp(fetchedThreads);
+        
+        // Precache messages for first 30 threads in background
+        const threadIds = fetchedThreads.slice(0, 30).map((t: { id: string }) => t.id);
+        if (threadIds.length > 0) {
+          preloadThreadMessages(threadIds).catch(error => 
+            console.warn("Failed to preload thread messages:", error)
+          );
+        }
       } else {
         console.error("Failed to load threads:", response.status);
       }
     } catch (error) {
       console.error("Error loading threads:", error);
     } finally {
-      setIsLoadingThreads(false);
-      setHasInitialized(true);
+      // API fetch complete
     }
-  }, [setThreads, setIsLoadingThreads]);
+  }, [setThreadsWithTimestamp, preloadThreadMessages]);
 
-  // Load threads on mount
+  // Initialize threads - use cache immediately if available
+  const initializeThreads = useCallback(() => {
+    // Don't do anything until store is hydrated
+    if (!_hasHydrated) {
+      console.log('🚫 Store not hydrated yet, waiting...');
+      return;
+    }
+    
+    console.log('✅ Store hydrated, initializing threads:', { threadsCount: threads.length, hasInitialized });
+    
+    // Always show cached threads immediately if available
+    if (threads.length > 0) {
+      setHasInitialized(true);
+      
+      // Background refresh if data is stale
+      if (shouldRefreshThreads()) {
+        refreshThreadsFromAPI();
+      }
+    } else if (!hasInitialized) {
+      setIsLoadingThreads(true);
+      refreshThreadsFromAPI().finally(() => {
+        setIsLoadingThreads(false);
+        setHasInitialized(true);
+      });
+    }
+  }, [_hasHydrated, threads.length, shouldRefreshThreads, refreshThreadsFromAPI, setIsLoadingThreads, hasInitialized]);
+
+  // Initialize threads on mount and when store hydrates
   useEffect(() => {
-    loadThreads();
-  }, [loadThreads]);
+    initializeThreads();
+  }, [initializeThreads]);
 
   // Ensure thread is selected when URL changes (e.g., on refresh)
   useEffect(() => {
@@ -88,14 +129,14 @@ export const ThreadList = () => {
         }
         
         // Refresh the thread list from the server to ensure sync
-        await loadThreads();
+        await refreshThreadsFromAPI();
       } else {
         console.error("Failed to delete thread:", response.status);
       }
     } catch (error) {
       console.error("Error deleting thread:", error);
     }
-  }, [removeThread, currentThreadId, loadThreads, setCurrentThreadId]);
+  }, [removeThread, currentThreadId, refreshThreadsFromAPI, setCurrentThreadId]);
 
   // Switch to thread
   const switchToThread = (threadId: string) => {
@@ -127,7 +168,10 @@ export const ThreadList = () => {
 
         {/* Thread List */}
         <div className="flex-1 overflow-y-auto px-1.5">
-          {!hasInitialized ? (
+          {!_hasHydrated ? (
+            // Show blank space while hydrating (no flash)
+            <div className="py-2" />
+          ) : !hasInitialized ? (
             // Show blank space while initializing (no flash)
             <div className="py-2" />
           ) : isLoadingThreads ? (

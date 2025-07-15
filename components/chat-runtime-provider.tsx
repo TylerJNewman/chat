@@ -3,16 +3,9 @@
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type AppendMessage } from "@assistant-ui/react";
 import { type ReactNode, useState, useCallback, useRef, createContext, useContext, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { useChatStore } from "@/store/chat-store";
+import { useChatStore, type ChatMessage } from "@/store/chat-store";
 import { useQueryState } from "nuqs";
 
-// Simplified message type that matches what we need
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  createdAt: Date;
-}
 
 // Context for thread management
 interface ThreadContextType {
@@ -32,6 +25,7 @@ export const useThread = () => {
 };
 
 export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
+  
   const [isRunning, setIsRunning] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [resourceId] = useState("user-123"); // Static resourceId for now
@@ -43,21 +37,50 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
     isLoadingThread,
     setIsLoadingThread,
     updateThread,
+    getThreadMessages,
+    hasThreadMessages,
+    setThreadMessages,
+    addMessageToThread,
+    updateMessageInThread,
   } = useChatStore();
+  
   
   // Use nuqs to persist current thread ID in URL
   const [currentThreadId, setCurrentThreadId] = useQueryState('thread', {
     defaultValue: '',
     clearOnDefault: true,
   });
+  
 
   const generateId = useCallback(() => uuidv4(), []);
 
+  // Background sync for message persistence
+  const syncMessagesToBackend = useCallback(async (threadId: string, messages: ChatMessage[]) => {
+    try {
+      await fetch(`/api/threads/${threadId}/messages`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: messages.map(msg => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            createdAt: msg.createdAt.toISOString(),
+          })),
+        }),
+      });
+    } catch (error) {
+      console.warn('Failed to sync messages to backend:', error);
+      // Don't throw - this is background sync, we don't want to break the UI
+    }
+  }, []);
+
   // Don't auto-create threads - let user start conversation naturally
 
-  // Load thread messages from API
-  const loadThreadMessages = useCallback(async (threadId: string) => {
-    setIsLoadingThread(true);
+  // Background fetch of thread messages from API
+  const fetchThreadMessagesFromAPI = useCallback(async (threadId: string) => {
     try {
       const response = await fetch(`/api/threads/${threadId}`, {
         method: 'GET',
@@ -69,12 +92,16 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       if (response.ok) {
         const data = await response.json();
         if (data.messages && Array.isArray(data.messages)) {
-          setMessages(data.messages.map((msg: { id?: string; role: string; content: string; createdAt?: string }) => ({
+          const fetchedMessages = data.messages.map((msg: { id?: string; role: string; content: string; createdAt?: string }) => ({
             id: msg.id || generateId(),
             role: msg.role as "user" | "assistant",
             content: msg.content,
             createdAt: new Date(msg.createdAt || Date.now()),
-          })));
+          }));
+          
+          // Cache the messages in store and update UI
+          setThreadMessages(threadId, fetchedMessages);
+          setMessages(fetchedMessages);
         }
       } else if (response.status !== 404) {
         // 404 is expected for new threads, but other errors should be logged
@@ -82,13 +109,33 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error('Error loading thread messages:', error);
+    }
+  }, [generateId, setThreadMessages]);
+
+  // Load thread messages instantly from cache, fetch in background if needed
+  const loadThreadMessages = useCallback(async (threadId: string) => {
+    
+    // Always check cache first and load instantly
+    const hasCached = hasThreadMessages(threadId);
+    
+    if (hasCached) {
+      const cachedMessages = getThreadMessages(threadId);
+      setMessages(cachedMessages);
+      return; // Don't fetch from API if we have cached data
+    }
+
+    // Only show loading and fetch from API if no cached data
+    setIsLoadingThread(true);
+    try {
+      await fetchThreadMessagesFromAPI(threadId);
     } finally {
       setIsLoadingThread(false);
     }
-  }, [generateId, setIsLoadingThread]);
+  }, [hasThreadMessages, getThreadMessages, fetchThreadMessagesFromAPI, setIsLoadingThread]);
 
   // Load messages for current thread when threadId changes
   useEffect(() => {
+    
     if (currentThreadId) {
       loadThreadMessages(currentThreadId);
     } else {
@@ -96,6 +143,7 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       setMessages([]);
     }
   }, [currentThreadId, loadThreadMessages]);
+
 
   const convertMessage = useCallback((message: ChatMessage) => {
     return {
@@ -138,8 +186,11 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
         createdAt: new Date(),
       };
 
-      // Add user message immediately
+      // Add user message immediately (optimistic update)
       setMessages(prev => [...prev, userMessage]);
+      if (threadId) {
+        addMessageToThread(threadId, userMessage);
+      }
       
       // Create assistant message placeholder
       const assistantMessageId = generateId();
@@ -151,6 +202,9 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       };
       
       setMessages(prev => [...prev, assistantMessage]);
+      if (threadId) {
+        addMessageToThread(threadId, assistantMessage);
+      }
 
       // Prepare messages for API
       const apiMessages = [...messages, userMessage].map(msg => ({
@@ -200,12 +254,15 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
               const text = JSON.parse(data);
               accumulatedText += text;
               
-              // Update the assistant message with accumulated text
+              // Update the assistant message with accumulated text (optimistic update)
               setMessages(prev => prev.map(msg => 
                 msg.id === assistantMessageId 
                   ? { ...msg, content: accumulatedText }
                   : msg
               ));
+              if (threadId) {
+                updateMessageInThread(threadId, assistantMessageId, { content: accumulatedText });
+              }
             } catch (e) {
               console.warn('Failed to parse text chunk:', data);
             }
@@ -229,6 +286,12 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       if (isNewThread) {
         setCurrentThreadId(threadId);
       }
+
+      // Background sync messages to backend (don't await to avoid blocking UI)
+      if (threadId) {
+        const currentMessages = getThreadMessages(threadId);
+        syncMessagesToBackend(threadId, currentMessages);
+      }
       
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -242,6 +305,10 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       if (isNewThread) {
         // Clear messages since we failed to send
         setMessages([]);
+        // Also clear from store if we added optimistically
+        if (threadId) {
+          setThreadMessages(threadId, []);
+        }
         return;
       }
       
@@ -254,11 +321,14 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       };
       
       setMessages(prev => [...prev, errorMessage]);
+      if (threadId) {
+        addMessageToThread(threadId, errorMessage);
+      }
     } finally {
       setIsRunning(false);
       abortControllerRef.current = null;
     }
-  }, [isRunning, messages, currentThreadId, resourceId, generateId, updateThread, createNewThread, setCurrentThreadId]);
+  }, [isRunning, messages, currentThreadId, resourceId, generateId, updateThread, createNewThread, setCurrentThreadId, addMessageToThread, updateMessageInThread, setThreadMessages, getThreadMessages, syncMessagesToBackend]);
 
   const onEdit = useCallback(async (message: AppendMessage) => {
     // Handle message editing - for now just log
