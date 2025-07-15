@@ -3,22 +3,23 @@
 import { Button } from "@/components/ui/button";
 import { PlusIcon, X } from "lucide-react";
 import { useThread } from "./chat-runtime-provider";
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, memo } from "react";
 import { useChatStore } from "@/store/chat-store";
 import { useQueryState } from "nuqs";
 
 export const ThreadList = () => {
   
-  const {
-    threads,
-    setThreadsWithTimestamp,
-    removeThread,
-    isLoadingThreads,
-    setIsLoadingThreads,
-    shouldRefreshThreads,
-    preloadThreadMessages,
-    _hasHydrated,
-  } = useChatStore();
+  // Use direct store access without mapping to avoid infinite re-renders
+  const threads = useChatStore((state) => state.threads);
+  const isLoadingThreads = useChatStore((state) => state.isLoadingThreads);
+  const _hasHydrated = useChatStore((state) => state._hasHydrated);
+  const shouldRefreshThreads = useChatStore((state) => state.shouldRefreshThreads);
+  
+  // Separate actions to avoid re-renders
+  const setThreadsWithTimestamp = useChatStore((state) => state.setThreadsWithTimestamp);
+  const removeThread = useChatStore((state) => state.removeThread);
+  const setIsLoadingThreads = useChatStore((state) => state.setIsLoadingThreads);
+  const preloadThreadMessages = useChatStore((state) => state.preloadThreadMessages);
   
   
   // Use nuqs to persist current thread ID in URL
@@ -68,11 +69,8 @@ export const ThreadList = () => {
   const initializeThreads = useCallback(() => {
     // Don't do anything until store is hydrated
     if (!_hasHydrated) {
-      console.log('🚫 Store not hydrated yet, waiting...');
       return;
     }
-    
-    console.log('✅ Store hydrated, initializing threads:', { threadsCount: threads.length, hasInitialized });
     
     // Always show cached threads immediately if available
     if (threads.length > 0) {
@@ -204,7 +202,7 @@ interface ThreadItemProps {
   onDelete: () => void;
 }
 
-const ThreadItem = ({ thread, isActive, onSelect, onDelete }: ThreadItemProps) => {
+const ThreadItem = memo(({ thread, isActive, onSelect, onDelete }: ThreadItemProps) => {
   return (
     <li className="group relative">
       <Button
@@ -233,4 +231,6 @@ const ThreadItem = ({ thread, isActive, onSelect, onDelete }: ThreadItemProps) =
       </Button>
     </li>
   );
-}; 
+});
+
+ThreadItem.displayName = 'ThreadItem'; 

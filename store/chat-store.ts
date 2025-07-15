@@ -127,16 +127,12 @@ export const useChatStore = create<ChatStore>()(
       
       getThreadMessages: (threadId: string) => {
         const state = get();
-        const messages = state.threadMessages[threadId] || [];
-        console.log('🏪 Store: getThreadMessages for', threadId, ':', messages.length, 'messages');
-        return messages;
+        return state.threadMessages[threadId] || [];
       },
       
       hasThreadMessages: (threadId: string) => {
         const state = get();
-        const hasMessages = threadId in state.threadMessages;
-        console.log('🏪 Store: hasThreadMessages for', threadId, ':', hasMessages);
-        return hasMessages;
+        return threadId in state.threadMessages;
       },
       
       clearThreadMessages: (threadId: string) =>
@@ -149,21 +145,13 @@ export const useChatStore = create<ChatStore>()(
       // Caching helpers
       shouldRefreshThreads: () => {
         const state = get();
-        console.log('🏪 Store: shouldRefreshThreads check:', { 
-          lastFetched: state.threadsLastFetched,
-          threadsCount: state.threads.length 
-        });
         
         if (!state.threadsLastFetched) {
-          console.log('🏪 Store: No last fetched time, should refresh');
           return true;
         }
         
-        // Refresh if older than 5 minutes
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        const shouldRefresh = state.threadsLastFetched < fiveMinutesAgo;
-        console.log('🏪 Store: Should refresh:', shouldRefresh);
-        return shouldRefresh;
+        // Refresh if older than 5 minutes (300000ms)
+        return (Date.now() - state.threadsLastFetched.getTime()) > 300000;
       },
       
       preloadThreadMessages: async (threadIds: string[]) => {
@@ -240,7 +228,7 @@ export const useChatStore = create<ChatStore>()(
       }),
       // Add optimistic updates for better UX
       version: 1,
-      // Custom storage to handle Date objects
+      // Custom storage to handle Date objects - optimized for speed
       storage: {
         getItem: (name) => {
           const str = localStorage.getItem(name);
@@ -248,26 +236,41 @@ export const useChatStore = create<ChatStore>()(
             return null;
           }
           
-          const parsed = JSON.parse(str);
-          // Convert date strings back to Date objects
-          if (parsed.state?.threads) {
-            parsed.state.threads = parsed.state.threads.map((thread: { id: string; title: string; updatedAt: string }) => ({
-              ...thread,
-              updatedAt: new Date(thread.updatedAt),
-            }));
-          }
-          if (parsed.state?.threadsLastFetched) {
-            parsed.state.threadsLastFetched = new Date(parsed.state.threadsLastFetched);
-          }
-          if (parsed.state?.threadMessages) {
-            for (const threadId of Object.keys(parsed.state.threadMessages)) {
-              parsed.state.threadMessages[threadId] = parsed.state.threadMessages[threadId].map((msg: { id: string; role: string; content: string; createdAt: string }) => ({
-                ...msg,
-                createdAt: new Date(msg.createdAt),
-              }));
+          try {
+            const parsed = JSON.parse(str);
+            
+            // Fast date conversion - only process if data exists
+            if (parsed.state) {
+              const { state } = parsed;
+              
+              // Convert thread dates
+              if (state.threads?.length > 0) {
+                for (let i = 0; i < state.threads.length; i++) {
+                  state.threads[i].updatedAt = new Date(state.threads[i].updatedAt);
+                }
+              }
+              
+              // Convert last fetched date
+              if (state.threadsLastFetched) {
+                state.threadsLastFetched = new Date(state.threadsLastFetched);
+              }
+              
+              // Convert message dates
+              if (state.threadMessages) {
+                for (const threadId in state.threadMessages) {
+                  const messages = state.threadMessages[threadId];
+                  for (let i = 0; i < messages.length; i++) {
+                    messages[i].createdAt = new Date(messages[i].createdAt);
+                  }
+                }
+              }
             }
+            
+            return parsed;
+          } catch (error) {
+            console.warn('Failed to parse stored data:', error);
+            return null;
           }
-          return parsed;
         },
         setItem: (name, value) => {
           localStorage.setItem(name, JSON.stringify(value));

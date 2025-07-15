@@ -31,18 +31,16 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
   const [resourceId] = useState("user-123"); // Static resourceId for now
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Zustand store
-  const {
-    createNewThread,
-    isLoadingThread,
-    setIsLoadingThread,
-    updateThread,
-    getThreadMessages,
-    hasThreadMessages,
-    setThreadMessages,
-    addMessageToThread,
-    updateMessageInThread,
-  } = useChatStore();
+  // Direct store subscriptions to avoid infinite re-renders
+  const isLoadingThread = useChatStore((state) => state.isLoadingThread);
+  const createNewThread = useChatStore((state) => state.createNewThread);
+  const setIsLoadingThread = useChatStore((state) => state.setIsLoadingThread);
+  const updateThread = useChatStore((state) => state.updateThread);
+  const getThreadMessages = useChatStore((state) => state.getThreadMessages);
+  const hasThreadMessages = useChatStore((state) => state.hasThreadMessages);
+  const setThreadMessages = useChatStore((state) => state.setThreadMessages);
+  const addMessageToThread = useChatStore((state) => state.addMessageToThread);
+  const updateMessageInThread = useChatStore((state) => state.updateMessageInThread);
   
   
   // Use nuqs to persist current thread ID in URL
