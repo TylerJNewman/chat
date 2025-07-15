@@ -119,13 +119,16 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     
+    // Create thread if none exists (user is starting a conversation)
+    let threadId = currentThreadId;
+    let isNewThread = false;
+    if (!threadId) {
+      threadId = createNewThread();
+      isNewThread = true;
+      // Don't set URL yet - wait until message is sent successfully
+    }
+    
     try {
-      // Create thread if none exists (user is starting a conversation)
-      let threadId = currentThreadId;
-      if (!threadId) {
-        threadId = createNewThread();
-        setCurrentThreadId(threadId);
-      }
       
       // Create user message
       const userMessage: ChatMessage = {
@@ -222,6 +225,11 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
         updateThread(threadId, { updatedAt: new Date() });
       }
       
+      // Only update URL after successful message send to avoid race condition
+      if (isNewThread) {
+        setCurrentThreadId(threadId);
+      }
+      
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
         console.log('Request was aborted');
@@ -230,7 +238,14 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       
       console.error("Error in chat:", error);
       
-      // Add error message
+      // If this was a new thread and we failed, don't update URL
+      if (isNewThread) {
+        // Clear messages since we failed to send
+        setMessages([]);
+        return;
+      }
+      
+      // Add error message for existing threads
       const errorMessage: ChatMessage = {
         id: generateId(),
         role: "assistant",
