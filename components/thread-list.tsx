@@ -8,7 +8,6 @@ import { useChatStore } from "@/store/chat-store";
 import { useQueryState } from "nuqs";
 
 export const ThreadList = () => {
-  const { newThread } = useThread();
   const {
     threads,
     setThreads,
@@ -56,6 +55,18 @@ export const ThreadList = () => {
     loadThreads();
   }, [loadThreads]);
 
+  // Ensure thread is selected when URL changes (e.g., on refresh)
+  useEffect(() => {
+    // If we have a thread ID in the URL but no threads loaded yet, wait for threads to load
+    if (currentThreadId && hasInitialized && threads.length > 0) {
+      const threadExists = threads.some(thread => thread.id === currentThreadId);
+      if (!threadExists) {
+        // Thread doesn't exist in our list, navigate to home
+        setCurrentThreadId('');
+      }
+    }
+  }, [currentThreadId, threads, hasInitialized, setCurrentThreadId]);
+
   // Delete thread
   const deleteThread = useCallback(async (threadId: string) => {
     try {
@@ -70,10 +81,10 @@ export const ThreadList = () => {
         // Remove from local store immediately for responsive UI
         removeThread(threadId);
         
-        // If we deleted the current thread, create a new one
+        // If we deleted the current thread, navigate to home
         if (threadId === currentThreadId) {
           setCurrentThreadId('');
-          newThread();
+          // Let the ChatRuntimeProvider handle creating a new thread when URL is cleared
         }
         
         // Refresh the thread list from the server to ensure sync
@@ -84,7 +95,7 @@ export const ThreadList = () => {
     } catch (error) {
       console.error("Error deleting thread:", error);
     }
-  }, [removeThread, currentThreadId, newThread, loadThreads, setCurrentThreadId]);
+  }, [removeThread, currentThreadId, loadThreads, setCurrentThreadId]);
 
   // Switch to thread
   const switchToThread = (threadId: string) => {
@@ -102,7 +113,7 @@ export const ThreadList = () => {
           <Button
             onClick={() => {
               setCurrentThreadId('');
-              newThread();
+              // Let the ChatRuntimeProvider handle creating a new thread when URL is cleared
             }}
             variant="outline"
             className="w-full justify-center gap-2 h-9"

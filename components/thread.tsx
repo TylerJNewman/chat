@@ -16,26 +16,47 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useThread } from "@/components/chat-runtime-provider";
+import { useQueryState } from "nuqs";
 
 export const Thread: FC = () => {
+  const { isLoadingThread } = useThread();
+  const [currentThreadId] = useQueryState('thread', {
+    defaultValue: '',
+    clearOnDefault: true,
+  });
+
   return (
     <ThreadPrimitive.Root className="bg-background box-border flex h-full flex-col overflow-hidden">
       <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto px-4 py-8 w-full max-w-screen-md mx-auto">
-        <ThreadPrimitive.Empty>
+        {/* Show loading state if we have a thread ID but are loading messages */}
+        {currentThreadId && isLoadingThread ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <h2 className="text-xl font-semibold mb-2">Start a conversation</h2>
-            <p className="text-muted-foreground">
-              Ask me anything to get started.
-            </p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4" />
+            <p className="text-muted-foreground">Loading conversation...</p>
           </div>
-        </ThreadPrimitive.Empty>
+        ) : (
+          <>
+            {/* Only show empty state when there's no thread ID */}
+            {!currentThreadId && (
+              <ThreadPrimitive.Empty>
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <h2 className="text-xl font-semibold mb-2">Start a conversation</h2>
+                  <p className="text-muted-foreground">
+                    Ask me anything to get started.
+                  </p>
+                </div>
+              </ThreadPrimitive.Empty>
+            )}
 
-        <ThreadPrimitive.Messages
-          components={{
-            UserMessage,
-            AssistantMessage,
-          }}
-        />
+            <ThreadPrimitive.Messages
+              components={{
+                UserMessage,
+                AssistantMessage,
+              }}
+            />
+          </>
+        )}
       </ThreadPrimitive.Viewport>
 
       <div className="px-4">

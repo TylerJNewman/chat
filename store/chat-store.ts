@@ -84,6 +84,8 @@ export const useChatStore = create<ChatStore>()(
       partialize: (state) => ({
         threads: state.threads,
       }),
+      // Add optimistic updates for better UX
+      version: 1,
       // Custom storage to handle Date objects
       storage: {
         getItem: (name) => {

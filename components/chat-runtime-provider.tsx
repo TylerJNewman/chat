@@ -53,13 +53,7 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
 
   const generateId = useCallback(() => uuidv4(), []);
 
-  // Initialize thread on mount if none exists
-  useEffect(() => {
-    if (!currentThreadId) {
-      const newThreadId = createNewThread();
-      setCurrentThreadId(newThreadId);
-    }
-  }, [currentThreadId, createNewThread, setCurrentThreadId]);
+  // Don't auto-create threads - let user start conversation naturally
 
   // Load thread messages from API
   const loadThreadMessages = useCallback(async (threadId: string) => {
@@ -97,6 +91,9 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (currentThreadId) {
       loadThreadMessages(currentThreadId);
+    } else {
+      // Clear messages when no thread is selected
+      setMessages([]);
     }
   }, [currentThreadId, loadThreadMessages]);
 
@@ -123,6 +120,13 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
     abortControllerRef.current = abortController;
     
     try {
+      // Create thread if none exists (user is starting a conversation)
+      let threadId = currentThreadId;
+      if (!threadId) {
+        threadId = createNewThread();
+        setCurrentThreadId(threadId);
+      }
+      
       // Create user message
       const userMessage: ChatMessage = {
         id: generateId(),
@@ -159,7 +163,7 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
         },
         body: JSON.stringify({
           messages: apiMessages,
-          threadId: currentThreadId,
+          threadId,
           resourceId,
         }),
         signal: abortController.signal,
@@ -212,10 +216,10 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       // Update thread title if this is the first message
       if (messages.length === 0) {
         const title = userMessage.content.slice(0, 50) + (userMessage.content.length > 50 ? '...' : '');
-        updateThread(currentThreadId, { title, updatedAt: new Date() });
+        updateThread(threadId, { title, updatedAt: new Date() });
       } else {
         // Just update the timestamp
-        updateThread(currentThreadId, { updatedAt: new Date() });
+        updateThread(threadId, { updatedAt: new Date() });
       }
       
     } catch (error: unknown) {
@@ -239,7 +243,7 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
       setIsRunning(false);
       abortControllerRef.current = null;
     }
-  }, [isRunning, messages, currentThreadId, resourceId, generateId, updateThread]);
+  }, [isRunning, messages, currentThreadId, resourceId, generateId, updateThread, createNewThread, setCurrentThreadId]);
 
   const onEdit = useCallback(async (message: AppendMessage) => {
     // Handle message editing - for now just log
@@ -254,9 +258,9 @@ export const ChatRuntimeProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const handleNewThread = useCallback(() => {
+    setMessages([]);
     const newThreadId = createNewThread();
     setCurrentThreadId(newThreadId);
-    setMessages([]);
   }, [createNewThread, setCurrentThreadId]);
 
   const runtime = useExternalStoreRuntime({
